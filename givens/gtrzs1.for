@@ -1,0 +1,50 @@
+C GIVENSOVA TRANSFORMACE - ZPETNA SUBSTITUCE
+C=======================================================================
+C
+      SUBROUTINE GTRZS1(POCNEZ,TOLMIN,DIAG,X,XRNZ,XNZSUB,NZSUB,RNEP)
+C
+C POCNEZ  POCET NEZNAMYCH  (SLOUPCU MATICE A)
+C TOLMIN  TOLERANCE PRO IDENTIFIKACI NULOVYCH DIAGONALNICH PRVKU
+C DIAG    DIAGONALNI PRVKY MATICE R
+C X       VEKTOR NEZNAMYCH X
+C XRNZ    VEKTOR SMERNIKU NA SEZNAMY NENULOVYCH PRVKU V RADCICH R
+C XNZSUB  VEKTOR SMERNIKU DO NZSUB
+C NZSUB   KOMPRIMOVANY VEKTOR INDEXU NENULOVYCH PRVKU R
+C RNEP    NEDIAGONALNI NENULOVE PRVKY ROZKLADU R
+C
+      INTEGER  POCNEZ, XRNZ(1), XNZSUB(1), NZSUB(1)
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /         TOLMIN, DIAG(1), X(1), RNEP(1)
+C
+C-----------------------------------------------------------------------
+C
+      INTEGER  POC, KON, IND, II, I, J, K
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /         W
+C
+      I   = POCNEZ
+      DO 600 II=1,POCNEZ
+         W   = X(I)
+         POC = XRNZ(I)
+         KON = XRNZ(I+1) - 1
+         IF(POC.GT.KON)  GOTO 660
+            IND = XNZSUB(I)
+            DO 650 J=POC,KON
+               K = NZSUB(IND)
+               W = W - RNEP(J)*X(K)
+               IND = IND + 1
+650         CONTINUE
+660      CONTINUE
+         IF(ABS(DIAG(I)).GT.TOLMIN)  GOTO 665
+            X(I) = 0.0
+            GOTO 659
+665      CONTINUE
+            X(I) = W/DIAG(I)
+659      CONTINUE
+         I = I - 1
+600   CONTINUE
+      RETURN
+C
+      END

@@ -1,0 +1,146 @@
+C  gt4lsa --- Givens Transformation for Least Squares Adjustment
+C ======================================================================
+C
+      PROGRAM GT4LSA
+C
+C     MAXM    AVAILABLE MEMORY (NUMBER OF ELEMENTS OF A REAL*8 ARRAY)
+C
+C   LOGIGAL UNIT NUMBERS:
+C
+C     LUN1    DESIGN MATRIX (IN BINARY FORMAT, READ BY SUBR. GIVENS)
+C     LUN2    OUTPUT COVARIANCE MATRIX (FILE NAME: GT4LSA.WC)
+C     LUNTMP  TEMPORARY WORKING FILE   (FILE NAME: GT4LSA.TMP)
+C
+C   INPUT PARAMETERS ARE READ FROM STANDARD INPUT (*)
+C
+      INTEGER     MAXM, LUN1, LUN2, LUNTMP
+      PARAMETER  (MAXM=250000, LUN1=1, LUN2=2, LUNTMP=3)
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /            M(MAXM)
+      INTEGER     INDX(1), NX, POCNEZ, POCPOZ, IOUT
+      EQUIVALENCE (INDX, M)
+      INTEGER     IPAR, PTR, IMFREE, MAX, I, IM
+      CHARACTER*60  SOUBRO
+C
+C     ------------------------------------------------------------
+C     SOUBRO    NAME OF INPUT DESIGN MATRIX
+C     IPAR = 0  WEIGHT COEFFICIENTS WILL NOT BE COPMUTED
+C            1  WEIGHT COEFFICIENTS OF ADJUSTED UNKNOWNS ONLY
+C            2  WEIGHT COEFFICIENTS OF ADJUTED MEASURMENTS ONLY
+C            3  WEIGHT COEFFICIENTS OF ADJUSTED UNKNOWNS AND
+C               ADJUSTED MEASUREMENTS
+C     POCNEZ    NUMBER OF UNKNOWNS
+C     POCPOZ    NUMBER OF MEASUREMENTS
+C     NX        NUMBER OF ELEMENTS OF VECTOR OF UNKNOWNS FOR
+C               WHICH EUKLIDEAN NORM WILL BE MINIMAZED IN CASE
+C               OF RANK DEFFICIENT SYSTEM (IF NX EQUALS TO POCNES,
+C               EUKLIDEAN NORM OF WHOLE VECTOR OF UNKNOWNS WILL BE
+C               MINIMIZED
+C
+C     -----------------------------------------------------------
+      WRITE(*,'(A)')  ' ###  gt4lsa  v. 2.01       2000.09.20'
+      READ(*,*)  SOUBRO
+      WRITE(*,'(A,A/)') ' ###  ',SOUBRO
+      OPEN(UNIT=LUN1,FILE=SOUBRO, ACCESS='SEQUENTIAL')
+      READ(*,*)   IPAR, POCNEZ, POCPOZ, NX
+C     ------------------------------------------------------
+C     ALLOCATE MEMORY FOR VECTOR CONTAINING INDICES OF THOSE
+C     UNKNOWNS FOR WHICH EUKLIDIAN NORM WILL BE MINIMAZED
+C     IN THE CASE OF RANK DEFFICIENT SYSTEM
+C     ------------------------------------------------------
+      MAX    = MAXM
+      iout   = 0
+      IMFREE = 1
+      CALL GTFREI(NX, IM, IMFREE, MAX, IOUT)
+      IF(IOUT.NE.0)  STOP 'ALLOCATE MEMORY ERROR'
+      IF(NX.LT.POCNEZ)  THEN
+         READ(*,*)  (INDX(I),I=1,NX)
+      ELSE
+         DO 100 I=1,NX
+            INDX(I) = I
+100      CONTINUE
+      END IF
+C     ----------------------------------------------------
+C     COMPUTE VECTOR OF UKNOWNS AND/OR WEIGHT COEFFICIENTS
+C     ----------------------------------------------------
+      CALL SBMAIN(IPAR, M(IMFREE), MAX, NX, INDX, LUN1, LUN2, LUNTMP)
+C
+      END
+C
+C=======================================================================
+C
+      SUBROUTINE SBMAIN(IPAR, M, MAXM, NX, INDX, LUN1, LUN2, LUNTMP)
+C
+      INTEGER    MAXM, LUN1, DEFEKT, IOUT, MAXMM, POCNEZ, POCPOZ, I, J,
+     /           K, NX, INDX(1), DEFTR, LUN2, LUNTMP, IPAR
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /           M(MAXM), TOLMIN, TOLEPS, M0, RNORM, SNORM
+C
+      TOLEPS = 1E-16
+      CALL GTMNOR(LUN1,RNORM,SNORM,M,IOUT)
+C     IF(SNORM.GT.RNORM)  RNORM = SNORM
+      TOLEPS = TOLEPS*RNORM
+      TOLMIN = 1E-4*RNORM
+      CALL GTGET0(LUN1,POCNEZ,POCPOZ,I)
+      DEFTR = 3
+      MAXMM = MAXM
+      CALL GIVENS(3,LUN1,M,MAXMM,TOLMIN,TOLEPS,DEFTR,M0,DEFEKT,NX,INDX,
+     /IOUT)
+      WRITE(*,'(A,4I5,I10,F12.4)')
+     /     ' ###',POCNEZ,POCPOZ,IOUT,DEFEKT,MAXMM,M0
+      IF(IOUT.NE.0)  WRITE(*,*) '### GIVENS: I/O ERROR --- IOUT',IOUT
+      IF(IOUT.NE.0)  STOP
+      DO 40 I=1,POCNEZ
+         WRITE(*,*) I, M(I)
+40    CONTINUE
+C
+      IF(IPAR.EQ.0)  RETURN
+      OPEN(UNIT=LUN2,FILE='GT4LSA.WC',
+     /     ACCESS='DIRECT',RECL=POCNEZ*8,ERR=987)
+      OPEN(UNIT=LUNTMP,FILE='GT4LSA.TMP',
+     /     ACCESS='DIRECT',RECL=POCNEZ*8,ERR=987)
+C
+      CALL GTVAHK(IPAR,LUN1,LUN2,LUNTMP,TOLMIN,M,MAXMM,NX,INDX,
+     /            M,M(POCNEZ+1),MAXM-POCNEZ,IOUT)
+      GOTO 789
+  987    STOP '### TMP FILE OPENING ERROR'
+789   CONTINUE
+      IF(IOUT.NE.0)  WRITE(*,*) '### GTVAHK: I/O ERROR --- IOUT',IOUT
+      IF(IOUT.NE.0)  STOP
+      CALL GTTIMW
+      IF(IPAR.EQ.1)  K = POCNEZ
+      IF(IPAR.EQ.2)  K = POCPOZ
+      IF(IPAR.EQ.3)  K = POCNEZ + POCPOZ
+      DO 50 I=1,K
+         CALL QQ(I,I,LUN2,POCNEZ)
+50    CONTINUE
+C
+      END
+C-----------------------------------------------------------------------
+      SUBROUTINE QQ(I,J,LUN,POCNEZ)
+      INTEGER  I, J, POCNEZ, LUN
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /         Q1, ZAZ1(1500), ZAZ2(1500)
+      CALL QLX(Q1,I,J,LUN,ZAZ1,ZAZ2,POCNEZ)
+      WRITE(*,*)  I,J,Q1
+      END
+C-----------------------------------------------------------------------
+      SUBROUTINE QLX(Q,I,J,LUN,ZZNM1,ZZNM2,POCNEZ)
+C$INCLUDE: 'GTREAL.INC'
+      DOUBLE PRECISION
+     /         Q, ZZNM1(1), ZZNM2(1)
+      INTEGER  I, J, LUN, POCNEZ, K
+      READ(LUN,REC=I,ERR=999)  (ZZNM1(K),K=1,POCNEZ)
+      READ(LUN,REC=J,ERR=999)  (ZZNM2(K),K=1,POCNEZ)
+      Q = 0.0
+      DO 10 K=1,POCNEZ
+         Q = Q + ZZNM1(K)*ZZNM2(K)
+10    CONTINUE
+      RETURN
+999   STOP 'QLX --- READ ERROR'
+      END
+C Lahey Fortran $INCLUDE: 'GTMNOR.FOR'
+C Lahey Fortran $INCLUDE: 'GTTIME.FOR'

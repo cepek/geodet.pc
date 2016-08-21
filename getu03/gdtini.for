@@ -1,0 +1,18 @@
+C UVODNI INICIALIZACE
+C=======================================================================
+C         1. VERZE  /SRPEN 1984/      VUGTK
+C       * 5. VERZE      /ZARI 1989/             VUGTK      ALES CEPEK
+C
+      SUBROUTINE GDTINI
+C
+$INCLUDE: 'GDTSOW.COM'
+      CHARACTER*(*)  QJMENO
+      PARAMETER  (QJMENO='GETU03.LST')
+      CHARACTER*6  VERZE
+      COMMON /TTEXIW/ VERZE
+$INCLUDE: 'GDSOPT.COM'
+C
+      CALL SCOPY('GETU03VYROVNANI MISTNI TRIGONOMETRICKE SITE'C,SOTEXT)
+      CALL GDSSTR(-1,SOTEXT)
+C
+      END

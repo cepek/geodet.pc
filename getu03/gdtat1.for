@@ -1,0 +1,18 @@
+C PRIPRAVA K ANALYZE A TISKU VYSLEDKU
+C=======================================================================
+C         1. VERZE  /SRPEN 1984/         VUGTK
+C
+      SUBROUTINE GDTAT1(AW)
+C
+$INCLUDE: 'GDTSOW.COM'
+      REAL  AW
+C*    VIRTUAL  AW(VIRDIM)
+      DIMENSION  AW(VIRDIM)
+C
+C PRIPRAVA GLOBALNICH VELICIN
+      CALL GDTPGV(AW)
+C
+C TISK ZAVERU ANALYZY VYSLEDKU 1. KROKU GSO
+      CALL GDTZAV
+C
+      END
